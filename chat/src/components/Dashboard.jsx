@@ -401,7 +401,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-dvh bg-gray-50 overflow-hidden">
       {/* Sidebar */}
       <div
         className={`${selectedUser ? "hidden md:flex" : "flex w-full"
