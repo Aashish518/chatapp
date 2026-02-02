@@ -132,7 +132,7 @@ const Register = ({ setIsAuthenticated }) => {
                     <img
                       src={formData.image}
                       alt="Profile Preview"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover object-top"
                     />
                   ) : (
                     <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400">

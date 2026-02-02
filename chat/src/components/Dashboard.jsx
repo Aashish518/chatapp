@@ -374,7 +374,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
                   <img
                     src={currentUser.image}
                     alt={currentUser.name}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-white"
+                    className="w-12 h-12 rounded-full object-cover object-top border-2 border-white"
                   />
                 ) : (
                   <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
@@ -445,7 +445,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
                     <img
                       src={user.image}
                       alt={user.name}
-                      className="w-12 h-12 rounded-full object-cover"
+                      className="w-12 h-12 rounded-full object-cover object-top"
                     />
                   ) : (
                     <div className="w-12 h-12 bg-linear-to-br from-teal-400 to-cyan-400 rounded-full flex items-center justify-center text-white font-semibold">
@@ -514,7 +514,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
                     <img
                       src={selectedUser.image}
                       alt={selectedUser.name}
-                      className="w-10 h-10 rounded-full object-cover"
+                      className="w-10 h-10 rounded-full object-cover object-top"
                     />
                   ) : (
                     <div className="w-10 h-10 bg-linear-to-br from-teal-400 to-cyan-400 rounded-full flex items-center justify-center text-white font-semibold">
