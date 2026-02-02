@@ -23,7 +23,6 @@ const Dashboard = ({ setIsAuthenticated }) => {
   const [socket, setSocket] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all"); // 'all', 'unread'
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [userLastSeen, setUserLastSeen] = useState({});
@@ -405,8 +404,8 @@ const Dashboard = ({ setIsAuthenticated }) => {
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar */}
       <div
-        className={`${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } md:translate-x-0 fixed md:static inset-y-0 left-0 z-30 w-80 bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out flex flex-col`}
+        className={`${selectedUser ? "hidden md:flex" : "flex w-full"
+          } md:w-80 flex-col border-r border-gray-200 bg-white z-30`}
       >
         {/* Sidebar Header */}
         <div className="p-4 border-b border-gray-200 bg-linear-to-r from-teal-500 to-cyan-500">
@@ -431,12 +430,6 @@ const Dashboard = ({ setIsAuthenticated }) => {
                 <p className="text-xs text-teal-100">Online</p>
               </div>
             </div>
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="md:hidden text-white hover:bg-white/20 p-2 rounded-lg transition"
-            >
-              <FiX size={24} />
-            </button>
           </div>
 
           {/* Search */}
@@ -474,10 +467,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
             filteredUsers.map((user) => (
               <div
                 key={user._id}
-                onClick={() => {
-                  setSelectedUser(user);
-                  setIsSidebarOpen(false);
-                }}
+                onClick={() => setSelectedUser(user)}
                 className={`flex items-center space-x-3 p-4 cursor-pointer transition-colors ${selectedUser?._id === user._id
                   ? "bg-teal-50 border-l-4 border-teal-500"
                   : "hover:bg-gray-50"
@@ -504,7 +494,6 @@ const Dashboard = ({ setIsAuthenticated }) => {
                     <h3 className="font-semibold text-gray-800 truncate">
                       {user.name}
                     </h3>
-                    {console.log(user.lastMessage)}
                     {user.lastMessage && (
                       <span className="text-[10px] text-gray-400">
                         {new Date(user.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -540,17 +529,17 @@ const Dashboard = ({ setIsAuthenticated }) => {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className={`${selectedUser ? "flex" : "hidden md:flex"} flex-1 flex-col h-full bg-white`}>
         {selectedUser ? (
           <>
             {/* Chat Header */}
-            <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between shadow-sm">
+            <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => setIsSidebarOpen(true)}
+                  onClick={() => setSelectedUser(null)}
                   className="md:hidden text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition"
                 >
-                  <FiMenu size={24} />
+                  <FiX size={24} />
                 </button>
                 <div className="relative">
                   {selectedUser.image ? (
@@ -579,9 +568,14 @@ const Dashboard = ({ setIsAuthenticated }) => {
                   </p>
                 </div>
               </div>
-              <button className="text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition">
-                <FiMoreVertical size={20} />
-              </button>
+              <div className="flex items-center space-x-3">
+                <button className="text-gray-400 hover:text-gray-600 transition">
+                  <FiSearch size={20} />
+                </button>
+                <button className="text-gray-400 hover:text-gray-600 transition">
+                  <FiMoreVertical size={20} />
+                </button>
+              </div>
             </div>
 
             {/* Messages */}
@@ -641,7 +635,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
             </div>
 
             {/* Message Input */}
-            <div className="bg-white border-t border-gray-200 p-4">
+            <div className="bg-white border-t border-gray-200 p-4 sticky bottom-0 z-10">
               <form onSubmit={handleSendMessage} className="flex space-x-3">
                 <input
                   type="text"
@@ -662,12 +656,6 @@ const Dashboard = ({ setIsAuthenticated }) => {
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center bg-linear-to-br from-teal-50 to-cyan-50">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden absolute top-4 left-4 text-gray-600 hover:bg-white p-3 rounded-lg transition shadow-lg"
-            >
-              <FiMenu size={24} />
-            </button>
             <div className="text-center">
               <div className="w-32 h-32 bg-linear-to-br from-teal-400 to-cyan-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
                 <svg
@@ -697,14 +685,6 @@ const Dashboard = ({ setIsAuthenticated }) => {
           </div>
         )}
       </div>
-
-      {/* Overlay for mobile */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        ></div>
-      )}
     </div>
   );
 };
