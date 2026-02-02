@@ -529,7 +529,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
       </div>
 
       {/* Main Chat Area */}
-      <div className={`${selectedUser ? "flex" : "hidden md:flex"} flex-1 flex-col h-full bg-white`}>
+      <div className={`${selectedUser ? "flex" : "hidden md:flex"} flex-1 flex-col h-dvh bg-white`}>
         {selectedUser ? (
           <>
             {/* Chat Header */}
