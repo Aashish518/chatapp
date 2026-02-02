@@ -104,9 +104,21 @@ app.post("/api/register", async (req, res) => {
       expiresIn: "7d",
     });
 
+    const newUser = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+      isOnline: true, // Default to online as they just registered and will likely login/connect
+      lastSeen: new Date()
+    };
+
+    // Broadcast new user to all connected clients
+    io.emit("new-user-registered", newUser);
+
     res.status(201).json({
       token,
-      user: { id: user._id, name: user.name, email: user.email, image: user.image },
+      user: newUser,
     });
   } catch (error) {
     res.status(500).json({ message: "Error registering user", error: error.message });
@@ -403,13 +415,14 @@ io.on("connection", (socket) => {
       if (socketId === socket.id) {
         activeUsers.delete(userId);
 
+        const lastSeen = new Date();
         // Update user's online status and last seen in database
         await User.findByIdAndUpdate(userId, {
           isOnline: false,
-          lastSeen: new Date()
+          lastSeen: lastSeen
         });
 
-        io.emit("user-status", { userId, status: "offline" });
+        io.emit("user-status", { userId, status: "offline", lastSeen });
         break;
       }
     }

@@ -29,7 +29,13 @@ const Dashboard = ({ setIsAuthenticated }) => {
   const [userLastSeen, setUserLastSeen] = useState({});
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const selectedUserRef = useRef(null); // Add Ref to track selected user without stale closures
   const navigate = useNavigate();
+
+  // Keep ref synced with state
+  useEffect(() => {
+    selectedUserRef.current = selectedUser;
+  }, [selectedUser]);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -119,13 +125,13 @@ const Dashboard = ({ setIsAuthenticated }) => {
     });
 
     socketConnection.on("user-typing", (data) => {
-      if (data.senderId === selectedUser?._id) {
+      if (data.senderId === selectedUserRef.current?._id) {
         setIsTyping(true);
       }
     });
 
     socketConnection.on("user-stop-typing", (data) => {
-      if (data.senderId === selectedUser?._id) {
+      if (data.senderId === selectedUserRef.current?._id) {
         setIsTyping(false);
       }
     });
@@ -137,13 +143,33 @@ const Dashboard = ({ setIsAuthenticated }) => {
           newSet.add(data.userId);
         } else {
           newSet.delete(data.userId);
-          setUserLastSeen((prevLastSeen) => ({
-            ...prevLastSeen,
-            [data.userId]: new Date(),
-          }));
+          if (data.lastSeen) {
+            setUserLastSeen((prevLastSeen) => ({
+              ...prevLastSeen,
+              [data.userId]: data.lastSeen,
+            }));
+          }
         }
         return newSet;
       });
+    });
+
+    socketConnection.on("new-user-registered", (newUser) => {
+      setUsers((prev) => {
+        // Check if already exists to be safe
+        if (prev.find(u => u._id === newUser.id)) return prev;
+
+        return [...prev, {
+          ...newUser,
+          _id: newUser.id, // Ensure ID format matches
+          unreadCount: 0,
+          lastMessage: null
+        }];
+      });
+
+      if (newUser.isOnline) {
+        setOnlineUsers((prev) => new Set(prev).add(newUser.id));
+      }
     });
 
     fetchUsers();
@@ -209,6 +235,23 @@ const Dashboard = ({ setIsAuthenticated }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUsers(response.data);
+
+      // Initialize online users and last seen from fetched data
+      const online = new Set();
+      const lastSeenData = {};
+
+      response.data.forEach(u => {
+        if (u.isOnline) {
+          online.add(u._id);
+        }
+        if (u.lastSeen) {
+          lastSeenData[u._id] = u.lastSeen;
+        }
+      });
+
+      setOnlineUsers(online);
+      setUserLastSeen(lastSeenData);
+
     } catch (error) {
       console.error("Error fetching users:", error);
     }
@@ -374,7 +417,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
                   <img
                     src={currentUser.image}
                     alt={currentUser.name}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-white"
+                    className="w-12 h-12 rounded-full object-cover object-top border-2 border-white"
                   />
                 ) : (
                   <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
@@ -445,7 +488,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
                     <img
                       src={user.image}
                       alt={user.name}
-                      className="w-12 h-12 rounded-full object-cover"
+                      className="w-12 h-12 rounded-full object-cover object-top"
                     />
                   ) : (
                     <div className="w-12 h-12 bg-linear-to-br from-teal-400 to-cyan-400 rounded-full flex items-center justify-center text-white font-semibold">
@@ -514,7 +557,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
                     <img
                       src={selectedUser.image}
                       alt={selectedUser.name}
-                      className="w-10 h-10 rounded-full object-cover"
+                      className="w-10 h-10 rounded-full object-cover object-top"
                     />
                   ) : (
                     <div className="w-10 h-10 bg-linear-to-br from-teal-400 to-cyan-400 rounded-full flex items-center justify-center text-white font-semibold">
