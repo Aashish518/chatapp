@@ -22,15 +22,16 @@ const Dashboard = ({ setIsAuthenticated }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [socket, setSocket] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState("all"); 
+  const [filterType, setFilterType] = useState("all"); // 'all', 'unread'
   const [isTyping, setIsTyping] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [userLastSeen, setUserLastSeen] = useState({});
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
-  const selectedUserRef = useRef(null); 
+  const selectedUserRef = useRef(null); // Add Ref to track selected user without stale closures
   const navigate = useNavigate();
 
+  // Keep ref synced with state
   useEffect(() => {
     selectedUserRef.current = selectedUser;
   }, [selectedUser]);
@@ -47,14 +48,24 @@ const Dashboard = ({ setIsAuthenticated }) => {
     socketConnection.on("receive-message", (message) => {
       setMessages((prev) => [...prev, message]);
 
+      // Mark message as delivered
       socketConnection.emit("message-delivered", {
         messageId: message._id,
         senderId: message.senderId,
       });
 
+      // Update users list (re-sort and increment unread)
       setUsers((prevUsers) => {
         const updatedUsers = prevUsers.map((u) => {
           if (u._id === message.senderId) {
+            // If not currently selected user, increment unread
+            // Note: selectedUser from state might be stale in this callback if not careful, 
+            // but selectedUser is not in dependency array of this effect.
+            // We can check if the message roomId matches current chat, but simpler to just increment always 
+            // and let the "read" logic handle clearing it if we are in that chat?
+            // Actually, the read logic is in a separate useEffect.
+            // Let's rely on the fact that if we are in chat, we emit 'messages-read' shortly after.
+            // But for the UI counter, we should increment.
             return {
               ...u,
               unreadCount: (u.unreadCount || 0) + 1,
@@ -63,6 +74,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
           }
           return u;
         });
+        // Sort by last message time
         return updatedUsers.sort((a, b) => {
           const timeA = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
           const timeB = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
@@ -74,6 +86,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
     socketConnection.on("message-sent", (message) => {
       setMessages((prev) => [...prev, message]);
 
+      // Update users list (re-sort for SENT message too, to bump user to top)
       setUsers((prevUsers) => {
         const updatedUsers = prevUsers.map((u) => {
           if (u._id === message.receiverId) {
@@ -142,11 +155,12 @@ const Dashboard = ({ setIsAuthenticated }) => {
 
     socketConnection.on("new-user-registered", (newUser) => {
       setUsers((prev) => {
+        // Check if already exists to be safe
         if (prev.find(u => u._id === newUser.id)) return prev;
 
         return [...prev, {
           ...newUser,
-          _id: newUser.id, 
+          _id: newUser.id, // Ensure ID format matches
           unreadCount: 0,
           lastMessage: null
         }];
@@ -174,6 +188,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
     }
   }, [selectedUser]);
 
+  // Mark messages as read when viewing a chat
   useEffect(() => {
     if (selectedUser && socket && messages.length > 0) {
       const roomId = getRoomId(currentUser.id, selectedUser._id);
@@ -182,6 +197,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
       );
 
       if (hasUnreadMessages) {
+        // Mark as read via API
         const token = localStorage.getItem("token");
         axios.put(
           `${import.meta.env.VITE_BACK_URL}/api/messages/read/${roomId}`,
@@ -385,7 +401,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
   };
 
   return (
-    <div className="flex h-dvh bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar */}
       <div
         className={`${selectedUser ? "hidden md:flex" : "flex w-full"
@@ -552,7 +568,14 @@ const Dashboard = ({ setIsAuthenticated }) => {
                   </p>
                 </div>
               </div>
-              
+              <div className="flex items-center space-x-3">
+                <button className="text-gray-400 hover:text-gray-600 transition">
+                  <FiSearch size={20} />
+                </button>
+                <button className="text-gray-400 hover:text-gray-600 transition">
+                  <FiMoreVertical size={20} />
+                </button>
+              </div>
             </div>
 
             {/* Messages */}
