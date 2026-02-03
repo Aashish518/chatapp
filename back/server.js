@@ -33,13 +33,11 @@ if (!ENCRYPTION_KEY) {
 }
 
 
-// MongoDB Connection
 mongoose
   .connect(process.env.MONGODB_URI)
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
-// Encryption/Decryption functions
 function encrypt(text) {
   const algorithm = "aes-256-cbc";
   const key = Buffer.from(ENCRYPTION_KEY.slice(0, 64), "hex");
@@ -62,7 +60,6 @@ function decrypt(text) {
   return decrypted;
 }
 
-// Middleware to verify JWT
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -76,8 +73,7 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Routes
-// Register
+
 app.post("/api/register", async (req, res) => {
   try {
     const { name, email, password, image } = req.body;
@@ -109,11 +105,10 @@ app.post("/api/register", async (req, res) => {
       name: user.name,
       email: user.email,
       image: user.image,
-      isOnline: true, // Default to online as they just registered and will likely login/connect
+      isOnline: true,
       lastSeen: new Date()
     };
 
-    // Broadcast new user to all connected clients
     io.emit("new-user-registered", newUser);
 
     res.status(201).json({
@@ -125,7 +120,6 @@ app.post("/api/register", async (req, res) => {
   }
 });
 
-// Login
 app.post("/api/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -153,7 +147,6 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// Get all users (for chat list) with unread count and last message
 app.get("/api/users", authenticateToken, async (req, res) => {
   try {
     const users = await User.find({ _id: { $ne: req.user.id } }).select(
@@ -181,10 +174,7 @@ app.get("/api/users", authenticateToken, async (req, res) => {
           unreadCount,
           lastMessage: lastMessage
             ? {
-              content: "?", // We don't decrypt here for performance/security in list view unless needed, or we safely can if performance allows. For now let's just use timestamp for sorting. 
-              // Actually, the plan implies we might want to show it. But encryption makes it tricky without decrypting. 
-              // Let's just return the timestamp and maybe a placeholder or 'Encrypted Message' for now if we don't want to decrypt all.
-              // However, the prompt asked for "filter like new message chat top", so timestamp is critical.
+              content: "?",
               createdAt: lastMessage.createdAt,
             }
             : null,
@@ -192,12 +182,7 @@ app.get("/api/users", authenticateToken, async (req, res) => {
       })
     );
 
-    // Sort users: Users with unread messages first, then by last message time
     usersWithData.sort((a, b) => {
-      // Prioritize unread
-      // if (b.unreadCount !== a.unreadCount) return b.unreadCount - a.unreadCount; 
-      // Actually user just asked for "filter like new message chat top or current chat top". 
-      // Typically this means sorting by last activity.
 
       const timeA = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
       const timeB = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
@@ -210,13 +195,11 @@ app.get("/api/users", authenticateToken, async (req, res) => {
   }
 });
 
-// Get messages for a room
 app.get("/api/messages/:roomId", authenticateToken, async (req, res) => {
   try {
     const { roomId } = req.params;
     const messages = await Message.find({ roomId }).sort({ createdAt: 1 });
 
-    // Decrypt messages
     const decryptedMessages = messages.map((msg) => {
       let content;
       if (msg.senderId === req.user.id) {
@@ -242,12 +225,10 @@ app.get("/api/messages/:roomId", authenticateToken, async (req, res) => {
   }
 });
 
-// Mark messages as read
 app.put("/api/messages/read/:roomId", authenticateToken, async (req, res) => {
   try {
     const { roomId } = req.params;
 
-    // Update all messages in the room where the current user is the receiver
     await Message.updateMany(
       {
         roomId,
@@ -263,7 +244,6 @@ app.put("/api/messages/read/:roomId", authenticateToken, async (req, res) => {
   }
 });
 
-// Get current user
 app.get("/api/me", authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password -publicKey");
@@ -273,7 +253,6 @@ app.get("/api/me", authenticateToken, async (req, res) => {
   }
 });
 
-// Socket.IO connection
 const activeUsers = new Map();
 
 io.on("connection", (socket) => {
@@ -282,13 +261,11 @@ io.on("connection", (socket) => {
   socket.on("user-connected", async (userId) => {
     activeUsers.set(userId, socket.id);
 
-    // Update user's online status in database
     await User.findByIdAndUpdate(userId, {
       isOnline: true,
       lastSeen: new Date()
     });
 
-    // Broadcast online status to all users
     io.emit("user-status", { userId, status: "online" });
   });
 
@@ -296,7 +273,6 @@ io.on("connection", (socket) => {
     try {
       const { roomId, senderId, receiverId, content } = data;
 
-      // Encrypt message for both sender and receiver
       const encryptedContent = encrypt(content);
       const encryptedSenderContent = encrypt(content);
 
@@ -311,17 +287,14 @@ io.on("connection", (socket) => {
 
       await message.save();
 
-      // Check if receiver is online
       const receiverSocketId = activeUsers.get(receiverId);
       const isReceiverOnline = receiverSocketId ? true : false;
 
-      // If receiver is online, mark as delivered
       if (isReceiverOnline) {
         message.status = "delivered";
         await message.save();
       }
 
-      // Send to receiver
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("receive-message", {
           _id: message._id,
@@ -334,7 +307,6 @@ io.on("connection", (socket) => {
         });
       }
 
-      // Send back to sender with status
       socket.emit("message-sent", {
         _id: message._id,
         roomId,
@@ -354,10 +326,8 @@ io.on("connection", (socket) => {
     try {
       const { messageId, senderId } = data;
 
-      // Update message status to delivered
       await Message.findByIdAndUpdate(messageId, { status: "delivered" });
 
-      // Notify sender
       const senderSocketId = activeUsers.get(senderId);
       if (senderSocketId) {
         io.to(senderSocketId).emit("message-status-update", {
@@ -374,7 +344,6 @@ io.on("connection", (socket) => {
     try {
       const { roomId, senderId } = data;
 
-      // Update all unread messages in the room to read
       await Message.updateMany(
         {
           roomId,
@@ -384,7 +353,6 @@ io.on("connection", (socket) => {
         { status: "read" }
       );
 
-      // Notify sender about read status
       const senderSocketId = activeUsers.get(senderId);
       if (senderSocketId) {
         io.to(senderSocketId).emit("messages-read-update", {
@@ -416,7 +384,6 @@ io.on("connection", (socket) => {
         activeUsers.delete(userId);
 
         const lastSeen = new Date();
-        // Update user's online status and last seen in database
         await User.findByIdAndUpdate(userId, {
           isOnline: false,
           lastSeen: lastSeen
